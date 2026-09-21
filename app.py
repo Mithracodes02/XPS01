@@ -83,25 +83,39 @@ if uploaded_file is not None:
                 block = vms_obj.blocks[0]
 
                 # Robust attribute extraction for X (Binding Energy)
-                if hasattr(block, "abscissa"):
+                if hasattr(block, "abscissa") and block.abscissa is not None:
                     x_vals = block.abscissa
-                elif hasattr(block, "x"):
+                elif hasattr(block, "x") and block.x is not None:
                     x_vals = block.x
-                elif hasattr(block, "x_array"):
+                elif hasattr(block, "x_array") and block.x_array is not None:
                     x_vals = block.x_array
                 else:
                     x_start = getattr(block, "abscissa_start", 0)
                     x_step = getattr(block, "abscissa_increment", 1)
-                    num_pts = getattr(block, "num_corresponding_variables", len(block.corresponding_variables[0].array))
+                    corr_vars = getattr(block, "corresponding_variables", [])
+                    num_pts = len(corr_vars[0]) if corr_vars else 0
                     x_vals = [x_start + i * x_step for i in range(num_pts)]
 
-                # Extract Y (Intensity)
+                # Robust attribute extraction for Y (Intensity)
+                y_vals = None
                 if hasattr(block, "corresponding_variables") and len(block.corresponding_variables) > 0:
-                    y_vals = block.corresponding_variables[0].array
-                elif hasattr(block, "y"):
-                    y_vals = block.y
-                else:
-                    y_vals = block.y_array
+                    var0 = block.corresponding_variables[0]
+                    if hasattr(var0, "array"):
+                        y_vals = var0.array
+                    elif hasattr(var0, "values"):
+                        y_vals = var0.values
+                    elif hasattr(var0, "data"):
+                        y_vals = var0.data
+                    elif hasattr(var0, "y"):
+                        y_vals = var0.y
+                    else:
+                        y_vals = list(var0)  # Fallback if object is iterable
+
+                if y_vals is None:
+                    if hasattr(block, "y") and block.y is not None:
+                        y_vals = block.y
+                    elif hasattr(block, "y_array") and block.y_array is not None:
+                        y_vals = block.y_array
 
                 df = pd.DataFrame({"BE": x_vals, "Intensity": y_vals})
 
