@@ -82,40 +82,44 @@ if uploaded_file is not None:
                 vms_obj = vamas.Vamas(bytes_data)
                 block = vms_obj.blocks[0]
 
-                # Robust attribute extraction for X (Binding Energy)
-                if hasattr(block, "abscissa") and block.abscissa is not None:
-                    x_vals = block.abscissa
-                elif hasattr(block, "x") and block.x is not None:
-                    x_vals = block.x
-                elif hasattr(block, "x_array") and block.x_array is not None:
-                    x_vals = block.x_array
-                else:
-                    x_start = getattr(block, "abscissa_start", 0)
-                    x_step = getattr(block, "abscissa_increment", 1)
-                    corr_vars = getattr(block, "corresponding_variables", [])
-                    num_pts = len(corr_vars[0]) if corr_vars else 0
-                    x_vals = [x_start + i * x_step for i in range(num_pts)]
-
-                # Robust attribute extraction for Y (Intensity)
+                # Extract Y (Intensity) first so we know exact array length if needed
                 y_vals = None
                 if hasattr(block, "corresponding_variables") and len(block.corresponding_variables) > 0:
                     var0 = block.corresponding_variables[0]
                     if hasattr(var0, "array"):
-                        y_vals = var0.array
+                        y_vals = list(var0.array)
                     elif hasattr(var0, "values"):
-                        y_vals = var0.values
+                        y_vals = list(var0.values)
                     elif hasattr(var0, "data"):
-                        y_vals = var0.data
+                        y_vals = list(var0.data)
                     elif hasattr(var0, "y"):
-                        y_vals = var0.y
+                        y_vals = list(var0.y)
                     else:
-                        y_vals = list(var0)  # Fallback if object is iterable
+                        try:
+                            y_vals = list(var0)
+                        except TypeError:
+                            y_vals = None
 
                 if y_vals is None:
                     if hasattr(block, "y") and block.y is not None:
-                        y_vals = block.y
+                        y_vals = list(block.y)
                     elif hasattr(block, "y_array") and block.y_array is not None:
-                        y_vals = block.y_array
+                        y_vals = list(block.y_array)
+
+                # Extract X (Binding Energy)
+                if hasattr(block, "abscissa") and block.abscissa is not None:
+                    x_vals = list(block.abscissa)
+                elif hasattr(block, "x") and block.x is not None:
+                    x_vals = list(block.x)
+                elif hasattr(block, "x_array") and block.x_array is not None:
+                    x_vals = list(block.x_array)
+                else:
+                    x_start = getattr(block, "abscissa_start", 0)
+                    x_step = getattr(block, "abscissa_increment", 1)
+                    num_pts = getattr(block, "num_corresponding_variables", len(y_vals) if y_vals else 0)
+                    if num_pts == 0 and y_vals:
+                        num_pts = len(y_vals)
+                    x_vals = [x_start + i * x_step for i in range(num_pts)]
 
                 df = pd.DataFrame({"BE": x_vals, "Intensity": y_vals})
 
